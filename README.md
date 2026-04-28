@@ -162,6 +162,32 @@ sudo systemctl status e2e_npu_exporter
 curl http://localhost:8000/metrics
 ```
 
+## Nvidia GPU Exporter (community version)
+
+```bash
+cd 3rd-party
+wget https://github.com/utkuozdemir/nvidia_gpu_exporter/releases/download/v1.4.1/nvidia-gpu-exporter_1.4.1_linux_amd64.deb
+sudo dpkg -i nvidia-gpu-exporter_1.4.1_linux_amd64.deb
+rm nvidia-gpu-exporter_1.4.1_linux_amd64.deb
+
+# Create nvidia_gpu_exporter user
+sudo useradd --system --no-create-home --shell /usr/sbin/nologin nvidia_gpu_exporter
+sudo cp /usr/lib/systemd/system/nvidia_gpu_exporter.service /etc/systemd/system
+
+# Modify Port=9500
+sudo nano /etc/systemd/system/nvidia_gpu_exporter.service
+---
+ExecStart=/usr/bin/nvidia_gpu_exporter --web.listen-address=:9500
+---
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now nvidia_gpu_exporter
+sudo systemctl status nvidia_gpu_exporter
+
+# Check NVIDIA GPU metrics
+curl http://localhost:9500/metrics
+```
+
 ## Prometheus
 
 Below prometheus yaml config is at [prometheus.yml](./prometheus.yml)
@@ -221,6 +247,11 @@ scrape_configs:
     scheme: http
     static_configs:
       - targets: ['localhost:9400']
+
+  - job_name: "NVDIA GPU Exporter"
+    scheme: http
+    static_configs:
+      - targets: ['localhost:9500']
 ---
 
 # Copy systemd/e2e_node_exporter.service to systemd
@@ -288,6 +319,10 @@ curl http://localhost:9300/metrics
 # NPU
 sudo systemctl status e2e_npu_exporter
 curl http://localhost:9400/metrics
+
+# NVIDIA GPU
+sudo systemctl status nvidia_gpu_exporter
+curl http://localhost:9500/metrics
 
 # Prometheus
 sudo systemctl status e2e_prometheus
