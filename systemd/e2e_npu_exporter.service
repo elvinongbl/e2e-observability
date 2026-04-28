@@ -1,0 +1,18 @@
+[Unit]
+Description=NPU Exporter
+After=network-online.target
+
+[Service]
+Type=simple
+
+User=root
+WorkingDirectory=/home/user/repos/e2e-observability/3rd-party/edge-ai-libraries/tools/npu-monitor-tool
+
+ExecStart=/root/.pyenv/shims/gunicorn -w 1 -b localhost:9400 npu-metrics-exporter:app
+SyslogIdentifier=e2e_npu_exporter
+
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target

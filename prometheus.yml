@@ -22,24 +22,20 @@ scrape_configs:
   # Node Exporter
   - job_name: "node exporter"
     scheme: http
-
     static_configs:
       - targets: ['localhost:9100']
 
   - job_name: "qmmd exporter iGPU"
     scheme: http
-
     static_configs:
       - targets: ['localhost:9200']
 
   - job_name: "qmmd exporter dGPU"
     scheme: http
-
     static_configs:
       - targets: ['localhost:9300']
 
   - job_name: "NPU Metrics Exporter"
     scheme: http
-
     static_configs:
-      - targets: ['localhost:8000']
+      - targets: ['localhost:9400']

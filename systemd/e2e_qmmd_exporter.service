@@ -1,0 +1,17 @@
+[Unit]
+Description=QMMD Exporter
+After=network-online.target
+
+[Service]
+Type=simple
+
+User=root
+
+ExecStart=/usr/bin/qmmd -d 0000:00:02.0 -p 9200
+SyslogIdentifier=e2e_qmmd_exporter_igpu
+
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target

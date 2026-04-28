@@ -22,16 +22,34 @@ to your preference.
 REPODIR=/home/user/repos
 ```
 
+## Setup
+```bash
+cd $REPODIR
+git clone https://github.com/elvinongbl/e2e-observability.git
+cd e2e-observability
+```
+
 ## Node Exporter
 Note: Adjust below version accordingly if you need new version:
 ```bash
-cd $REPODIR
+cd 3rd-party
 wget https://github.com/prometheus/node_exporter/releases/download/v1.10.2/node_exporter-1.10.2.linux-amd64.tar.gz
 tar -xvf node_exporter-1.10.2.linux-amd64.tar.gz
 
 # Run node-exporter on a new terminal
-cd $REPODIR/node_exporter-1.10.2.linux-amd64
-./node_exporter --collector.systemd --collector.processes
+cd node_exporter-1.10.2.linux-amd64
+
+# Copy node_exporter to /usr/bin
+sudo cp node_exporter /usr/bin
+
+# Copy systemd/e2e_node_exporter.service to systemd
+cd $REPODIR/e2e-observability
+sudo cp systemd/e2e_node_exporter.service /etc/systemd/system
+
+# Reload and start node_exporter.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now e2e_node_exporter
+sudo systemctl status e2e_node_exporter
 
 # Test node-exporter on another terminal
 curl http://localhost:9100/metrics
@@ -39,16 +57,26 @@ curl http://localhost:9100/metrics
 
 ## Qmassa
 
+### Rust setup
+You may use the default installation path that install Rust and Cargo under $HOME:-
+- Cargo --> /home/user/.cargo
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+### Install qmassa and qmmd
+
 Project https://github.com/ulissesf/qmassa.git has qmassa (TUI) an qmmd (metrics exporter) for Prometheus.
 
 ```bash
 # Install from cargo
-# Below qmmd and qmassa are installed under ~/.cargo/bin/
+# Below qmmd and qmassa are installed under $HOME/.cargo/bin/
 cargo install --locked qmmd qmassa
 
 # Make qmmd and qmassa available to system / sudo
-sudo ln -sf /home/bong5/.cargo/bin/qmassa /usr/local/bin/qmassa
-sudo ln -sf /home/bong5/.cargo/bin/qmmd /usr/local/bin/qmmd
+sudo ln -sf /home/user/.cargo/bin/qmassa /usr/bin/qmassa
+sudo ln -sf /home/user/.cargo/bin/qmmd /usr/bin/qmmd
 
 # Look-up PCI-ID for intel iGPU and dGPU using lspci
 lspci | grep VGA
@@ -58,11 +86,38 @@ lspci | grep VGA
 05:00.0 VGA compatible controller: Intel Corporation Device XXXX
 ---
 
-# Run qmmd for iGPU on a new terminal (Assume port 9200 for iGPU)
-sudo qmmd -d 0000:00:02.0 -p 9200
+# Make copy of systemd service according to your platform
+sudo cp systemd/e2e_qmmd_exporter.service /etc/systemd/system/e2e_qmmd_exporter_igpu.service
+sudo cp systemd/e2e_qmmd_exporter.service /etc/systemd/system/e2e_qmmd_exporter_dgpu.service
 
-# Run qmmd for dGPU on a new terminal (Assume port 9200 for dGPU)
-sudo qmmd -d 0000:05:00.0 -p 9300
+# Note:# In order to obtain all GPU metrics, User=root is used.
+# Edit iGPU and dGPU service according to the port and PCI ID
+# Example:
+# Run qmmd for iGPU on a new terminal
+# Port 9200 for iGPU, please change accordingly.
+sudo nano /etc/systemd/system/e2e_qmmd_exporter_igpu.service
+---
+ExecStart=qmmd -d 0000:00:02.0 -p 9200
+SyslogIdentifier=e2e_qmmd_exporter_igpu
+---
+
+# Run qmmd for dGPU on a new terminal
+# Port 9300 for dGPU, please change accordingly.
+sudo nano /etc/systemd/system/e2e_qmmd_exporter_dgpu.service
+---
+ExecStart=qmmd -d 0000:05:00.0 -p 9300
+SyslogIdentifier=e2e_qmmd_exporter_dgpu
+---
+
+# Reload and start node_exporter.service
+sudo systemctl daemon-reload
+# For iGPU
+sudo systemctl enable --now e2e_qmmd_exporter_igpu
+sudo systemctl status e2e_qmmd_exporter_igpu
+
+# For dGPU
+sudo systemctl enable --now e2e_qmmd_exporter_dgpu
+sudo systemctl status e2e_qmmd_exporter_dgpu
 
 # Confirm node exporter for iGPU and dGPU are running (on another terminal)
 curl http://localhost:9200/metrics
@@ -77,11 +132,31 @@ TUI for NPU monitoring.
 
 ```bash
 # Assuming the PR has been merged
+cd 3rd-party
+git clone https://github.com/open-edge-platform/edge-ai-libraries
 cd edge-ai-libraries/tools/npu-monitor-tool
+# Change to root
+sudo su
 pip install -r requirements.txt
+# Change back to user
+su user
 
-# Run npu-metrics-exporter on a new terminal (Assume port 8000 for NPU)
-sudo env "PATH=$PATH" gunicorn -w 1 -b localhost:8000 npu-metrics-exporter:app
+sudo cp systemd/e2e_npu_exporter.service /etc/systemd/system/e2e_npu_exporter.service
+# Modify path to npu-monitor-tool
+# Modify path to gunicorn under 'root' accordingly if you are not using pyenv
+# Port=9400 assumed.
+---
+User=root
+WorkingDirectory=/home/user/repos/e2e-observability/3rd-party/edge-ai-libraries/tools/npu-monitor-tool
+
+ExecStart=/root/.pyenv/shims/gunicorn -w 1 -b localhost:9400 npu-metrics-exporter:app
+SyslogIdentifier=e2e_npu_exporter
+---
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now e2e_npu_exporter
+sudo systemctl restart e2e_npu_exporter
+sudo systemctl status e2e_npu_exporter
 
 # Confirm node exporter for NPU (on another terminal)
 curl http://localhost:8000/metrics
@@ -92,11 +167,17 @@ curl http://localhost:8000/metrics
 Below prometheus yaml config is at [prometheus.yml](./prometheus.yml)
 
 ```bash
-cd $REPODIR
+cd 3rd-party
 wget https://github.com/prometheus/prometheus/releases/download/v3.8.1/prometheus-3.8.1.linux-amd64.tar.gz
 tar -xvf prometheus-3.8.1.linux-amd64.tar.gz
+# The package contains prometheus and sample prometheus.yml to run prometheus service
 
-cd $REPODIR/prometheus-3.8.1.linux-amd64
+cd prometheus-3.8.1.linux-amd64
+sudo cp prometheus /usr/bin
+
+# You may copy or edit-then-copy the e2e-observability/prometheus.yml to /etc.
+cd $REPODIR/e2e-observability
+sudo cp prometheus.yml /etc/e2e-prometheus.yml
 nano prometheus.yml
 ---
 # my global config
@@ -123,31 +204,33 @@ scrape_configs:
   # Node Exporter
   - job_name: "node exporter"
     scheme: http
-
     static_configs:
       - targets: ['localhost:9100']
 
   - job_name: "qmmd exporter iGPU"
     scheme: http
-
     static_configs:
       - targets: ['localhost:9200']
 
   - job_name: "qmmd exporter dGPU"
     scheme: http
-
     static_configs:
       - targets: ['localhost:9300']
 
   - job_name: "NPU Metrics Exporter"
     scheme: http
-
     static_configs:
-      - targets: ['localhost:8000']
+      - targets: ['localhost:9400']
 ---
 
-# Run Prometheus on another terminal
-./prometheus --config.file=./prometheus.yml
+# Copy systemd/e2e_node_exporter.service to systemd
+sudo cp systemd/e2e_prometheus.service /etc/systemd/system
+
+# Reload and start node_exporter.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now e2e_prometheus
+sudo systemctl status e2e_prometheus
+
 ```
 
 To check Promethues, use web-browser http://localhost:9090/query and look for metrics
@@ -185,3 +268,32 @@ $ sudo systemctl status grafana-server
 ## Create New Dashboard for E2E Observability Dashboard
 In Grafana page, create new dashboard and import the sample E2E metrics dashboard in
 [grafana-e2e-dashboard.json](./grafana-e2e-dashboard.json)
+
+## Debugging
+```bash
+# Use before commands to check which metrics exporter is broken
+
+# CPU Node Exporter
+sudo systemctl status e2e_node_exporter
+curl http://localhost:9100/metrics
+
+# iGPU
+sudo systemctl status e2e_qmmd_exporter_igpu
+curl http://localhost:9200/metrics
+
+# dGPU
+sudo systemctl status e2e_qmmd_exporter_dgpu
+curl http://localhost:9300/metrics
+
+# NPU
+sudo systemctl status e2e_npu_exporter
+curl http://localhost:9400/metrics
+
+# Prometheus
+sudo systemctl status e2e_prometheus
+# webpage=http://localhost:9090/query
+
+# Grafana
+sudo systemctl status grafana-server
+# webpage=http://localhost:3000
+```

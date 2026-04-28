@@ -1,0 +1,17 @@
+[Unit]
+Description=E2E Prometheus
+After=network-online.target
+
+[Service]
+Type=simple
+
+User=root
+
+ExecStart=/usr/bin/prometheus --config.file=/etc/e2e-prometheus.yml
+SyslogIdentifier=e2e_prometheus
+
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target
