@@ -8,6 +8,8 @@ Disclaimer: there is no warranty in adopting this dashboard.
 Being a dashboard built on-top of Grafana/Prometheus, you may modify the feel and look according
 to your preference.
 
+[2026/04/30] Added Nvida Metrics Dashboard into E2E Dashboard for ease of comparison.
+
 # Example Grafana Dashboard
 
 ![E2E Observability](docs/images/e2e-cpu-gpu-npu.png)
