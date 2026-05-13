@@ -161,7 +161,7 @@ sudo systemctl restart e2e_npu_exporter
 sudo systemctl status e2e_npu_exporter
 
 # Confirm node exporter for NPU (on another terminal)
-curl http://localhost:8000/metrics
+curl http://localhost:9400/metrics
 ```
 
 ## Nvidia GPU Exporter (community version)
