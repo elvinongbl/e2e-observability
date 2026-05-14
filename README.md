@@ -298,6 +298,16 @@ $ sudo systemctl status grafana-server
 - Use initial login/password  = admin/admin
 - Update Grafana server with new password
 
+## Create Data-source for Prometheus
+- From Grafana left navigation menu, select 'Connections/Data Sources'.
+  Under "Add data source", search for "Prometheus" and select it.
+- In the "Prometheus/Settings" tab:
+  - Name = Prometheus Data Feeder
+  - Prometheus server URL = http://localhost:9090
+- Then, scroll to the bottom, click 'Save & test'.
+- Confirm that above "Prometheus Data Feeder" is listed (created) under Data sources,
+  when you select Grafana left navigation 'Connections/Data Sources' menu again.
+
 ## Create New Dashboard for E2E Observability Dashboard
 In Grafana page, create new dashboard and import the sample E2E metrics dashboard in
 [grafana-e2e-dashboard.json](./grafana-e2e-dashboard.json)
