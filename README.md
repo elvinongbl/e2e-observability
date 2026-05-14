@@ -132,6 +132,9 @@ TUI for NPU monitoring.
 
 [WIP] The PR for Prometheus enabling is https://github.com/open-edge-platform/edge-ai-libraries/pull/2110/commits
 
+Note: The Prometheus metrics exporter depends on Python package and the sample systemd at systemd/e2e_npu_exporter.service
+      is using pyenv that is installed for root. To setup pyenv for your system, please follow [docs/pyenv-setup.md](./docs/pyenv-setup.md).
+
 ```bash
 # Assuming the PR has been merged
 cd 3rd-party
