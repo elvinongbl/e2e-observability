@@ -128,10 +128,11 @@ curl http://localhost:9300/metrics
 
 ## NPU Monitoring Tool
 Project https://github.com/open-edge-platform/edge-ai-libraries/tree/main/tools/npu-monitor-tool contain
-TUI for NPU monitoring.
+TUI and Prometheus-based metrics exporter for NPU monitoring.
 
-[WIP] The PR for Prometheus enabling is https://github.com/open-edge-platform/edge-ai-libraries/pull/2110/commits
-
+Note: Prometheus enabling is now part of Open Edge Platform's edge-ai-libraries main branch at
+[PR merged](https://github.com/open-edge-platform/edge-ai-libraries/commit/807ef9b500f0a82b5a51744c480138433fd959d6)
+ 
 Note: The Prometheus metrics exporter depends on Python package and the sample systemd at systemd/e2e_npu_exporter.service
       is using pyenv that is installed for root. To setup pyenv for your system, please follow [docs/pyenv-setup.md](./docs/pyenv-setup.md).
 
