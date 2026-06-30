@@ -1,0 +1,152 @@
+services:
+  node-exporter:
+    image: quay.io/prometheus/node-exporter:latest
+    container_name: dsb_node_exporter
+    command:
+      - '--path.rootfs=/host'
+      - '--collector.systemd'
+      - '--collector.processes'
+      - '--web.listen-address=:${NODE_EXPORTER_PORT:-9100}'
+    environment:
+      - no_proxy=$no_proxy
+      - http_proxy=$http_proxy
+      - https_proxy=$https_proxy
+    network_mode: host
+    privileged: true
+    restart: on-failure:5
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+
+  qmmd-igpu:
+    build:
+      context: .
+      dockerfile: ./qmassa/Dockerfile
+      args:
+        no_proxy: ${no_proxy}
+        http_proxy: ${http_proxy}
+        https_proxy: ${https_proxy}
+    image: local/qmassa:latest
+    container_name: dsb_qmmd_igpu
+    command: ["qmmd", "-d", "${IGPU_PCI_ID:-0000:00:02.0}", "-p", "${IGPU_QMASSA_EXPORTER_PORT:-9200}"]
+    environment:
+      - no_proxy=$no_proxy
+      - http_proxy=$http_proxy
+      - https_proxy=$https_proxy
+    network_mode: host
+    privileged: true
+    restart: on-failure:5
+    devices:
+      - /dev/dri:/dev/dri
+
+  qmmd-dgpu:
+    build:
+      context: .
+      dockerfile: ./qmassa/Dockerfile
+      args:
+        no_proxy: ${no_proxy}
+        http_proxy: ${http_proxy}
+        https_proxy: ${https_proxy}
+    image: local/qmassa:latest
+    container_name: dsb_qmmd_dgpu
+    command: ["qmmd", "-d", "${DGPU_PCI_ID:-0000:05:00.0}", "-p", "${DGPU_QMASSA_EXPORTER_PORT:-9300}"]
+    environment:
+      - no_proxy=$no_proxy
+      - http_proxy=$http_proxy
+      - https_proxy=$https_proxy
+    network_mode: host
+    privileged: true
+    restart: on-failure:5
+    devices:
+      - /dev/dri:/dev/dri
+
+  npu-exporter:
+    build:
+      context: .
+      dockerfile: ./npu-monitor/Dockerfile
+      args:
+        no_proxy: ${no_proxy}
+        http_proxy: ${http_proxy}
+        https_proxy: ${https_proxy}
+    image: local/npu-exporter:latest
+    container_name: dsb_npu_exporter
+    command: ["gunicorn", "-w", "1","-b", "0.0.0.0:${NPU_METRICS_EXPORTER_PORT:-9400}", "npu-metrics-exporter:app"]
+    privileged: true
+    restart: on-failure:5
+    environment:
+      - no_proxy=$no_proxy
+      - http_proxy=$http_proxy
+      - https_proxy=$https_proxy
+    network_mode: host
+    devices:
+      - /dev/accel:/dev/accel
+
+  nvidia-gpu-exporter:
+    profiles: ["nvidia"]
+    image: utkuozdemir/nvidia_gpu_exporter:1.4.1
+    container_name: dsb_nvidia_gpu_exporter
+    command: ["--web.listen-address=:9500"]
+    gpus: all
+    privileged: true
+    restart: on-failure:5
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=utility
+      - no_proxy=$no_proxy
+      - http_proxy=$http_proxy
+      - https_proxy=$https_proxy
+    network_mode: host
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: dsb_prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    environment:
+      - no_proxy=$no_proxy
+      - http_proxy=$http_proxy
+      - https_proxy=$https_proxy
+    network_mode: host
+    privileged: false
+    restart: on-failure:5
+    depends_on:
+      node-exporter:
+        condition: service_started
+      qmmd-igpu:
+        condition: service_started
+      qmmd-dgpu:
+        condition: service_started
+      nvidia-gpu-exporter:
+        condition: service_started
+        required: false
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: dsb_grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - no_proxy=$no_proxy
+      - http_proxy=$http_proxy
+      - https_proxy=$https_proxy
+    network_mode: host
+    privileged: false
+    restart: on-failure:5
+    depends_on:
+      prometheus:
+        condition: service_started
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/grafana-system-dashboard.json:/var/lib/grafana/dashboards/grafana-system-dashboard.json:ro
+
+volumes:
+  prometheus_data:
+  grafana_data:
